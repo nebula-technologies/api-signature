@@ -12,7 +12,7 @@ pub fn sha512(value: &Vec<u8>) -> Vec<u8> {
     hasher.finalize().as_slice().to_vec()
 }
 
-pub fn hmac_sha512(enc_key: Vec<u8>, value: Vec<u8>) -> Vec<u8> {
+pub fn hmac_sha512(enc_key: &Vec<u8>, value: Vec<u8>) -> Vec<u8> {
     type hmac_sha512 = hmac::Hmac<sha2::Sha512>;
     let mut mac =
         hmac_sha512::new_from_slice(enc_key.as_slice()).expect("HMAC can take key of any size");
