@@ -20,9 +20,9 @@ pub fn hmac_sha512(enc_key: &Vec<u8>, value: Vec<u8>) -> Vec<u8> {
     mac.finalize().into_bytes().to_vec()
 }
 
-pub fn base64decode(value: &Vec<u8>) -> Result<Vec<u8>> {
-    base64::decode(value).map_err(Error::from)
+pub fn base64decode(value: &Vec<u8>) -> Vec<u8> {
+    base64::decode(value).map_err(Error::from).unwrap_or(Vec::new())
 }
-pub fn base64encode(value: &Vec<u8>) -> Result<Vec<u8>> {
-    base64::encode(value).map_err(Error::from)
+pub fn base64encode(value: &Vec<u8>) -> Vec<u8> {
+    base64::encode(value).map_err(Error::from).unwrap_or(Vec::new());
 }
