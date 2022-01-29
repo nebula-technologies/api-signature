@@ -6,6 +6,7 @@ mod helpers;
 
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::ops::Deref;
 
 use std::time::{Duration, SystemTime};
 pub struct Nonce {}
@@ -44,19 +45,19 @@ pub struct SignatureConfig {
     pattern: SignCal,
 }
 
-pub fn encode_sign(nonce: usize, public_key: String, uri: String) -> String {}
+pub fn encode_sign(nonce: usize, secret_key: String, uri: String) -> String {}
 
 pub fn sign_calc(
-    config: SignCal,
+    config: &SignCal,
     secret_value: secret,
     variables: &HashMap<String, Variable>,
-) -> String {
+) -> Vec<u8> {
     match config {
-        SignCal::HmacSha512(d) => helpers::hmac_sha512(secret),
-        SignCal::Sha256(_) => {}
-        SignCal::Base64encode(_) => {}
-        SignCal::Base64Decode(_) => {}
-        SignCal::Sha512(_) => {}
+        SignCal::HmacSha512(c) => helpers::hmac_sha512(secret_key, sign_calc(c.deref(), secret_value, variables)),
+        SignCal::Sha256(c) => {helpers::sha256(&sign_calc(c, secret_value, variables))}
+        SignCal::Base64encode(c) => {helpers::base64encode(&sign_calc(c, secret_value, variables))}
+        SignCal::Base64Decode(c) => {helpers::base64decode(&sign_calc(c, secret_value, variables))}
+        SignCal::Sha512(c) => {helpers::sha512(&sign(c,secret_value, variables))}
         SignCal::Append(_) => {}
         SignCal::VarData(_) => {}
         SignCal::VarString(_) => {}

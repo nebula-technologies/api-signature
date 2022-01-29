@@ -1,18 +1,13 @@
-pub fn api_sign<T: GetNonce + FormEncodable>(
-    urlpath: &str,
-    post_data: T,
-    private_key: &str,
-) -> Result<String> {
-    base64decode(private_key).map(|secret| {
-        let mut hmac_value = urlpath.as_bytes().to_vec();
+use crate::error::Error;
 
-        hmac_value.append(&mut sha256(&(post_data.get_nonce() + &post_data.encoded())));
-        base64::encode(hmac_sha512(secret, hmac_value))
-    })
+pub fn sha256(value: &Vec<u8>) -> Vec<u8> {
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(value);
+    hasher.finalize().as_slice().to_vec()
 }
 
-pub fn sha256(value: &str) -> Vec<u8> {
-    let mut hasher = sha2::Sha256::new();
+pub fn sha512(value: &Vec<u8>) -> Vec<u8> {
+    let mut hasher = sha2::Sha512::new();
     hasher.update(value);
     hasher.finalize().as_slice().to_vec()
 }
@@ -25,6 +20,9 @@ pub fn hmac_sha512(enc_key: Vec<u8>, value: Vec<u8>) -> Vec<u8> {
     mac.finalize().into_bytes().to_vec()
 }
 
-pub fn base64decode(value: &str) -> Result<Vec<u8>> {
+pub fn base64decode(value: &Vec<u8>) -> Result<Vec<u8>> {
     base64::decode(value).map_err(Error::from)
+}
+pub fn base64encode(value: &Vec<u8>) -> Result<Vec<u8>> {
+    base64::encode(value).map_err(Error::from)
 }
