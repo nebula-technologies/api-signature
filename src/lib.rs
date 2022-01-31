@@ -2,23 +2,76 @@ extern crate base64;
 extern crate bs58;
 extern crate hmac;
 extern crate serde;
-extern crate serde_derive;
-extern crate serde_json;
+extern crate simple_serde;
 
 mod error;
 mod helpers;
 
 use serde_derive::{Deserialize, Serialize};
+use serde_json::Value;
+use simple_serde::SimpleEncoder;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+/// Signing Object
+/// This object is for creating a API key signature.
+///
+/// This this example a static nonce is used to generate a API signature. This is to confirm the signature is as expected.
+/// The example is also using the default signature configuration.
+/// ```rust
+/// use std::sync::Arc;
+/// use api_signature::Signature;
+/// use base64;
+///
+/// let mut signing = Signature::default();
+/// let nonce = 1616492376594usize;
+///
+/// let validated_sign = base64::decode("4/dpxb3iT4tp/ZCVEwSnEsLxx0bqyhLpdfOpc6fn7OR8+UClSV5n9E6aSS8MPtnRfp32bAb0nmbRn6H8ndwLUQ==").unwrap();
+///
+/// let cal_sign = signing
+///   .var("payload", "ordertype=limit&pair=XBTUSD&price=37500&type=buy&volume=1.25")
+///   .var("secret_key", "kQH5HW/8p1uGOVjbgWA7FunAmGO8lsSUXNsu3eow76sz84Q18fWxnyRzBHCd3pd5nE9qa99HAZtuZuj6F1huXg==")
+///   .var("url", "/0/private/AddOrder")
+///   .nonce(Arc::new(move || -> Vec<u8> {nonce.to_string().as_bytes().to_vec()}))
+///   .sign();
+///
+/// assert_eq!(validated_sign, cal_sign)
+/// ```
+///
+/// At the time of signing is might be usefull to locking the nonce. By locking the nonce you will prevent
+/// change in the next signing.
+/// This is usefull in the default signing configuration, and if the nonce is not predictable.
+///
+/// In this example the signature will only generate a base64 encoded value.
+///
+/// ```rust
+/// use std::sync::Arc;
+/// use api_signature::Signature;
+/// use api_signature::SignCal;
+/// use base64;
+///
+/// let mut signing = Signature::default();
+///
+/// let cal_sign = signing
+///     .config(SignCal::Base64Encode(SignCal::VarString("nonce".to_string()).into()));
+/// let nonce = cal_sign.nonce_lock();
+///
+/// let b64_nonce = base64::encode(nonce).into_bytes();
+///
+///
+/// assert_eq!(b64_nonce, cal_sign.sign());
+/// ```
+/// > Note:
+/// > Using nonce_lock will lock the nonce until the next signing, as soon as a signing has happened the lock will be removed!
+/// > Also running the lock multiple times will force the signature generator to create new nonce values.
 #[derive(Clone)]
 pub struct Signature {
     config: Option<SignCal>,
     nonce: Arc<dyn Fn() -> Vec<u8>>,
     variables: HashMap<String, Variable>,
+    nonce_lock: Option<Vec<u8>>,
 }
 
 impl Signature {
@@ -34,11 +87,24 @@ impl Signature {
                     .into_bytes()
             }),
             variables: Default::default(),
+            nonce_lock: None,
         }
     }
 
     pub fn nonce(&mut self, o: Arc<dyn Fn() -> Vec<u8>>) -> &mut Self {
         self.nonce = o;
+        self
+    }
+
+    pub fn nonce_lock(&mut self) -> Vec<u8> {
+        let nonce_fn = self.nonce.clone();
+        let nonce = nonce_fn();
+        self.nonce_lock = Some(nonce.clone());
+        nonce
+    }
+
+    pub fn nonce_unlock(&mut self) -> &mut Self {
+        self.nonce_lock = None;
         self
     }
 
@@ -52,16 +118,24 @@ impl Signature {
         self
     }
 
-    pub fn compare<T: Into<Vec<u8>>>(&self, signature: T, nonce: usize) -> bool {
+    pub fn compare<T: Into<Vec<u8>>>(&mut self, signature: T, nonce: Vec<u8>) -> bool {
         let mut _self = self.clone();
-        _self.nonce = Arc::new(move || -> Vec<u8> { nonce.to_string().as_bytes().to_vec() });
+        _self.nonce = Arc::new(move || -> Vec<u8> { nonce.clone() });
         signature.into() == self.sign()
     }
 
-    pub fn sign(&self) -> Vec<u8> {
+    pub fn sign(&mut self) -> Vec<u8> {
         let nonce_fn = &self.nonce;
         let mut variables = self.variables.clone();
-        variables.insert("nonce".to_string(), Variable::Data(nonce_fn()));
+        variables.insert(
+            "nonce".to_string(),
+            Variable::Data(if let Some(nonce) = self.nonce_lock.clone() {
+                self.nonce_lock = None;
+                nonce.clone()
+            } else {
+                nonce_fn()
+            }),
+        );
         sign_calc(
             self.config.as_ref().unwrap_or(&SignCal::default()),
             &variables,
@@ -93,6 +167,12 @@ fn sign_calc(config: &SignCal, variables: &HashMap<String, Variable>) -> Vec<u8>
             .iter()
             .flat_map(|t| sign_calc(t, variables))
             .collect::<Vec<u8>>(),
+        SignCal::JoinAsString(a) => a
+            .iter()
+            .flat_map(|t| String::from_utf8(sign_calc(t, variables)))
+            .collect::<Vec<String>>()
+            .join("")
+            .into_bytes(),
         SignCal::VarData(k) => variables
             .get(k)
             .unwrap_or(&Variable::Data(Vec::new()))
@@ -106,6 +186,7 @@ fn sign_calc(config: &SignCal, variables: &HashMap<String, Variable>) -> Vec<u8>
             .unwrap_or(&Variable::Data(Vec::new()))
             .into(),
         SignCal::Raw(v) => v.clone(),
+        SignCal::String(s) => s.clone().into_bytes(),
     }
 }
 
@@ -120,25 +201,35 @@ pub enum SignCal {
     Base58Encode(Box<SignCal>),
     Base58Decode(Box<SignCal>),
     Append(Vec<SignCal>),
+    JoinAsString(Vec<SignCal>),
     VarData(String),
     VarString(String),
     VarInteger(String),
     Raw(Vec<u8>),
+    String(String),
 }
 
 impl Default for SignCal {
     fn default() -> Self {
         use SignCal::*;
         HmacSha512(
-            Box::new(VarString("secret_key".to_string())),
-            Box::new(Append(vec![
-                VarString("uri_path".to_string()),
-                Sha256(Box::new(Append(vec![
-                    VarInteger("nonce".to_string()),
-                    VarString("payload".to_string()),
-                ]))),
-                Base64Decode(Box::new(VarString("private_key".to_string()))),
-            ])),
+            Base64Decode(VarString("secret_key".to_string()).into()).into(),
+            Append(vec![
+                VarString("url".to_string()),
+                Sha256(
+                    Append(vec![
+                        VarInteger("nonce".to_string()),
+                        JoinAsString(vec![
+                            Raw("nonce=".to_string().into_bytes()),
+                            VarInteger("nonce".to_string()),
+                            Raw("&".to_string().into_bytes()),
+                            VarString("payload".to_string()),
+                        ]),
+                    ])
+                    .into(),
+                ),
+            ])
+            .into(),
         )
     }
 }
@@ -159,6 +250,7 @@ impl From<Variable> for Vec<u8> {
         }
     }
 }
+
 impl From<&Variable> for Vec<u8> {
     fn from(v: &Variable) -> Self {
         match v {
@@ -326,7 +418,7 @@ mod tests {
 
         let nonce = 1616492376594usize;
         let mut signature = Signature::default();
-        signature.var("payload", format!("nonce={}&ordertype=limit&pair=XBTUSD&price=37500&type=buy&volume=1.25",nonce))
+        signature.var("payload", format!("ordertype=limit&pair=XBTUSD&price=37500&type=buy&volume=1.25"))
             .var("secret_key", "kQH5HW/8p1uGOVjbgWA7FunAmGO8lsSUXNsu3eow76sz84Q18fWxnyRzBHCd3pd5nE9qa99HAZtuZuj6F1huXg==")
             .var("url", "/0/private/AddOrder")
             .nonce(Arc::new(move || -> Vec<u8> {nonce.to_string().as_bytes().to_vec()}))
@@ -338,7 +430,12 @@ mod tests {
                     Sha256(
                         Append(vec![
                             VarInteger("nonce".to_string()),
-                            VarString("payload".to_string()),
+                            JoinAsString(vec![
+                                Raw("nonce=".to_string().into_bytes()),
+                                VarInteger("nonce".to_string()),
+                                Raw("&".to_string().into_bytes()),
+                                VarString("payload".to_string()),
+                            ])
                         ])
                         .into(),
                     ),

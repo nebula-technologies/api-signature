@@ -1,4 +1,6 @@
 # API Signature
+[![pipeline status](https://gitlab.nebula.technology/libraries/rust/api-signature/badges/main/pipeline.svg)](https://gitlab.nebula.technology/libraries/rust/api-signature/-/commits/main) [![coverage report](https://gitlab.nebula.technology/libraries/rust/api-signature/badges/main/coverage.svg)](https://gitlab.nebula.technology/libraries/rust/api-signature/-/commits/main)
+
 A library for making API Signatures more schematic and reducing implementation overhead. The library helps build the desired API signing structure and ensures the validation will be done the same way across every service that uses the following library.
 
 ## Prolog
@@ -34,6 +36,7 @@ There are multiple available manipulators for the signing available:
 | Base58 Encoder | Base58Encode(Box\<SignCal\>) | Encode in Base58 format |
 | Base58 Decoder | Base58Decode(Box\<SignCal\>) | Decode Base58 |
 | Data Appending | Append(Vec\<SignCal\>) | Appending data together |
+| String Joining | JoinAsString(Vec\<SignCal\>) | Treating the internal data as strings and joins them together |
 | Data Variable from Raw| VarData(String) | Each signature will be passed a set of variables, this is for defining a variable where the expected data is raw `&[u8]` |
 | Data Variable from String| VarString(String) | Each signature will be passed a set of variables, this is for defining a variable where the expected data is Text `string | &str` |
 | Data Variable from Integer| VarInteger(String) | Each signature will be passed a set of variables, this is for defining a variable where the expected data is Number `i32 | u32 | i64 | u64 | i128 | u128 | usize` |
@@ -53,19 +56,23 @@ let config = Base64Encode(
             Sha256(
                 Append(vec![
                     VarInteger("nonce".to_string()),
-                    VarString("payload".to_string()),
+                    JoinAsString(vec![
+                        Raw("nonce=".to_string().into_bytes()),
+                        VarInteger("nonce".to_string()),
+                        Raw("&".to_string().into_bytes()),
+                        VarString("payload".to_string()),
+                    ]),
                 ])
                 .into(),
             ),
         ])
         .into(),
     )
-    .into(),
 );
 ```
 
 This configuration takes 4 variables `payload`,`secret_key`, `url`, and `nonce`.
-these can be set by using the signature libraries `.var([key], [data]`.
+these can be set by using the signature libraries `.var([key], [data])`.
 
 ### Common usage
 
@@ -79,14 +86,18 @@ let config = Base64Encode(
             Sha256(
                 Append(vec![
                     VarInteger("nonce".to_string()),
-                    VarString("payload".to_string()),
+                    JoinAsString(vec![
+                        Raw("nonce=".to_string().into_bytes()),
+                        VarInteger("nonce".to_string()),
+                        Raw("&".to_string().into_bytes()),
+                        VarString("payload".to_string()),
+                    ]),
                 ])
                 .into(),
             ),
         ])
         .into(),
     )
-    .into(),
 );
 let mut signature = Signature::default();
 signature.var("payload", format!("nonce={}&ordertype=limit&pair=XBTUSD&price=37500&type=buy&volume=1.25",nonce))
