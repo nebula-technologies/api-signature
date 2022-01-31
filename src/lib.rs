@@ -4,12 +4,9 @@ extern crate hmac;
 extern crate serde;
 extern crate simple_serde;
 
-mod error;
 mod helpers;
 
 use serde_derive::{Deserialize, Serialize};
-use serde_json::Value;
-use simple_serde::SimpleEncoder;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -68,10 +65,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 /// > Also running the lock multiple times will force the signature generator to create new nonce values.
 #[derive(Clone)]
 pub struct Signature {
-    config: Option<SignCal>,
-    nonce: Arc<dyn Fn() -> Vec<u8>>,
-    variables: HashMap<String, Variable>,
-    nonce_lock: Option<Vec<u8>>,
+    pub(crate) config: Option<SignCal>,
+    pub(crate) nonce: Arc<dyn Fn() -> Vec<u8>>,
+    pub(crate) variables: HashMap<String, Variable>,
+    pub(crate) nonce_lock: Option<Vec<u8>>,
 }
 
 impl Signature {
@@ -329,6 +326,7 @@ impl From<&[u8]> for Variable {
 
 #[cfg(test)]
 mod tests {
+    use crate::helpers::base64decode;
     use crate::{SignCal, Signature};
     use hex;
     use hex::FromHex;
@@ -448,5 +446,45 @@ mod tests {
         let api_sign = b"4/dpxb3iT4tp/ZCVEwSnEsLxx0bqyhLpdfOpc6fn7OR8+UClSV5n9E6aSS8MPtnRfp32bAb0nmbRn6H8ndwLUQ==".to_vec();
 
         assert_eq!(api_sign, signature.sign());
+    }
+
+    #[test]
+    fn test_sign_cal_compare_with_control_signature() {
+        use SignCal::*;
+
+        let nonce = 1616492376594usize;
+        let mut signature = Signature::default();
+        signature.var("payload", format!("ordertype=limit&pair=XBTUSD&price=37500&type=buy&volume=1.25"))
+            .var("secret_key", "kQH5HW/8p1uGOVjbgWA7FunAmGO8lsSUXNsu3eow76sz84Q18fWxnyRzBHCd3pd5nE9qa99HAZtuZuj6F1huXg==")
+            .var("url", "/0/private/AddOrder")
+            .nonce(Arc::new(move || -> Vec<u8> {nonce.to_string().as_bytes().to_vec()}));
+
+        let api_sign = base64::decode("4/dpxb3iT4tp/ZCVEwSnEsLxx0bqyhLpdfOpc6fn7OR8+UClSV5n9E6aSS8MPtnRfp32bAb0nmbRn6H8ndwLUQ==").unwrap().to_vec();
+
+        assert!(signature.compare(api_sign, nonce.to_string().as_bytes().to_vec()));
+    }
+
+    #[test]
+    fn test_nonce_lock() {
+        let mut signing = Signature::default();
+        let cal_sign = signing.config(SignCal::Base64Encode(
+            SignCal::VarString("nonce".to_string()).into(),
+        ));
+        let nonce = cal_sign.nonce_lock();
+        let b64_nonce = base64::encode(nonce).into_bytes();
+
+        assert_eq!(b64_nonce, cal_sign.sign());
+    }
+
+    #[test]
+    fn test_confirm_unlock() {
+        let mut signing = Signature::default();
+        let cal_sign = signing.config(SignCal::Base64Encode(
+            SignCal::VarString("nonce".to_string()).into(),
+        ));
+        let nonce = cal_sign.nonce_lock();
+        assert!(cal_sign.nonce_lock.is_some());
+        cal_sign.nonce_unlock();
+        assert!(cal_sign.nonce_lock.is_none());
     }
 }
