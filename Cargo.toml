@@ -2,6 +2,12 @@
 name = "api-signature"
 version = "0.1.0"
 edition = "2021"
+authors = ["Anders Blenstrup-Pedersen <abp-git@ryuu.technology>"]
+description = "A library that helps make the signing of API transactions more simple and more schemantic"
+readme = "README.md"
+categories = ["Security", "API", "API-signing"]
+license = "MIT"
+repository = "https://github.com/nebula-technologies/api-signature"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
