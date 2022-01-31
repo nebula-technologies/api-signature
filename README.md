@@ -25,19 +25,19 @@ There are multiple available manipulators for the signing available:
 
 | Manipulator | Function | Description |
 | --- | --- | ---|
-| HMAC SHA256 | HmacSha256(Box<SignCal>\[API enctyption key\], Box<SignCal>\[Data\]) | This will create a SHA256 HMAC[^1] using the API key and the data  |
-| HMAC SHA512 | HmacSha512(Box<SignCal>\[API enctyption key\], Box<SignCal>\[Data\]) | This will create a SHA512 HMAC[^1] using the API key and the data |
-| SHA256 | Sha256(Box<SignCal>) | Encode data in SHA256 format |
-| SHA512 | Sha512(Box<SignCal>) | Encode data in SHA512 format |
-| Base64 Encoder | Base64Encode(Box<SignCal>) | Encode in Base64 format |
-| Base64 Decoder | Base64Decode(Box<SignCal>) | Decode Base64 |
-| Base58 Encoder | Base58Encode(Box<SignCal>) | Encode in Base58 format |
-| Base58 Decoder | Base58Decode(Box<SignCal>) | Decode Base58 |
-| Data Appending | Append(Vec<SignCal>) | Appending data together |
+| HMAC SHA256 | HmacSha256(Box\<SignCal\>\[API enctyption key\], Box\<SignCal\>\[Data\]) | This will create a SHA256 HMAC[^1] using the API key and the data  |
+| HMAC SHA512 | HmacSha512(Box\<SignCal\>\[API enctyption key\], Box\<SignCal\>\[Data\]) | This will create a SHA512 HMAC[^1] using the API key and the data |
+| SHA256 | Sha256(Box\<SignCal\>) | Encode data in SHA256 format |
+| SHA512 | Sha512(Box\<SignCal\>) | Encode data in SHA512 format |
+| Base64 Encoder | Base64Encode(Box\<SignCal\>) | Encode in Base64 format |
+| Base64 Decoder | Base64Decode(Box\<SignCal\>) | Decode Base64 |
+| Base58 Encoder | Base58Encode(Box\<SignCal\>) | Encode in Base58 format |
+| Base58 Decoder | Base58Decode(Box\<SignCal\>) | Decode Base58 |
+| Data Appending | Append(Vec\<SignCal\>) | Appending data together |
 | Data Variable from Raw| VarData(String) | Each signature will be passed a set of variables, this is for defining a variable where the expected data is raw `&[u8]` |
 | Data Variable from String| VarString(String) | Each signature will be passed a set of variables, this is for defining a variable where the expected data is Text `string | &str` |
 | Data Variable from Integer| VarInteger(String) | Each signature will be passed a set of variables, this is for defining a variable where the expected data is Number `i32 | u32 | i64 | u64 | i128 | u128 | usize` |
-| Raw Data | Raw(Vec<u8>) | This is not a variable, but directly inserted data. This can be used for salting by config |
+| Raw Data | Raw(Vec\<u8\>) | This is not a variable, but directly inserted data. This can be used for salting by config |
 
 [^1]: HMAC: Hash-Based Message Authentication Codes
 
