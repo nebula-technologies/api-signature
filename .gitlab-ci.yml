@@ -1,0 +1,11 @@
+variables:
+  CARGO_AUDIT_IGNORE: RUSTSEC-2020-0159
+
+include:
+  - project: ci-cd/rust
+    ref: master
+    file: collections/complete.yml
+  - template: Dependency-Scanning.gitlab-ci.yml
+  - project: ci-cd/rust
+    ref: master
+    file: deploy/publish.yml
