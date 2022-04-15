@@ -77,9 +77,8 @@ these can be set by using the signature libraries `.var([key], [data])`.
 ### Common usage
 
 ```rust
-let nonce = 1616492376594usize;
-let config = Base64Encode(
-    HmacSha512(
+    let nonce = 1616492376594usize;
+    let config = Base64Encode(Box::new(HmacSha512(
         Base64Decode(VarString("secret_key".to_string()).into()).into(),
         Append(vec![
             VarString("url".to_string()),
@@ -97,17 +96,17 @@ let config = Base64Encode(
             ),
         ])
         .into(),
-    )
-);
-let mut signature = Signature::default();
-signature.var("payload", format!("nonce={}&ordertype=limit&pair=XBTUSD&price=37500&type=buy&volume=1.25",nonce))
-    .var("secret_key", "kQH5HW/8p1uGOVjbgWA7FunAmGO8lsSUXNsu3eow76sz84Q18fWxnyRzBHCd3pd5nE9qa99HAZtuZuj6F1huXg==")
-    .var("url", "/0/private/AddOrder")
-    .nonce(Arc::new(move || -> Vec<u8> {nonce.to_string().as_bytes().to_vec()}))
-    .config();
+    )));
 
-let api_sign = b"4/dpxb3iT4tp/ZCVEwSnEsLxx0bqyhLpdfOpc6fn7OR8+UClSV5n9E6aSS8MPtnRfp32bAb0nmbRn6H8ndwLUQ==".to_vec();
+    let mut signature = Signature::default();
+    signature.var("payload", format!("ordertype=limit&pair=XBTUSD&price=37500&type=buy&volume=1.25"))
+        .var("secret_key", "kQH5HW/8p1uGOVjbgWA7FunAmGO8lsSUXNsu3eow76sz84Q18fWxnyRzBHCd3pd5nE9qa99HAZtuZuj6F1huXg==")
+        .var("url", "/0/private/AddOrder")
+        .nonce(Arc::new(move || -> Vec<u8> {nonce.to_string().as_bytes().to_vec()}))
+        .config(config); // Library itself comes with default implementaion of config object. You may skip config creation & config method invocation.
 
-assert_eq!(api_sign, signature.sign());
+    let api_sign = b"4/dpxb3iT4tp/ZCVEwSnEsLxx0bqyhLpdfOpc6fn7OR8+UClSV5n9E6aSS8MPtnRfp32bAb0nmbRn6H8ndwLUQ==".to_vec();
+
+    assert_eq!(api_sign, signature.sign());
 ```
 
